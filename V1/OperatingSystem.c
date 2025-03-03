@@ -64,6 +64,8 @@ extern int MAINMEMORYSIZE;
 
 int PROCESSTABLEMAXSIZE = 4;
 
+char * statesNames[5]={"NEW","READY","EXECUTING","BLOCKED","EXIT"};
+
 // Initial set of tasks of the OS
 void OperatingSystem_Initialize(int programsFromFileIndex) {
 	
@@ -179,7 +181,9 @@ int OperatingSystem_LongTermScheduler() {
 		if (programList[i]->type==USERPROGRAM) 
 			numberOfNotTerminatedUserProcesses++;
 		// Move process to the ready state
+		ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,PID,programList[processTable[PID].programListIndex]->executableName,statesNames[0],statesNames[1]);
 		OperatingSystem_MoveToTheREADYState(PID);
+	
 	}
 
 	// Return the number of succesfully created processes
@@ -238,8 +242,8 @@ int OperatingSystem_CreateProcess(int indexOfExecutableProgram) {
 	// PCB initialization
 	OperatingSystem_PCBInitialization(PID, loadingPhysicalAddress, processSize, priority, indexOfExecutableProgram);
 	
-	// Show message "Process [PID] created from program [executableName]\n"
-	ComputerSystem_DebugMessage(TIMED_MESSAGE,70,SYSPROC,PID,executableProgram->executableName);
+	// Show message "Process [2] created into the [NEW] state, from program[progName]"
+	ComputerSystem_DebugMessage(TIMED_MESSAGE,54,SYSPROC,PID,statesNames[0],executableProgram->executableName);
 	
 	return PID;
 }
@@ -286,6 +290,8 @@ void OperatingSystem_MoveToTheREADYState(int PID) {
 	if (Heap_add(PID, readyToRunQueue[ALLPROCESSESQUEUE],QUEUE_PRIORITY ,&(numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]))>=0) {
 		processTable[PID].state=READY;
 	} 
+
+	OperatingSystem_PrintReadyToRunQueue();
 }
 
 
@@ -320,6 +326,7 @@ void OperatingSystem_Dispatch(int PID) {
 	// The process identified by PID becomes the current executing process
 	executingProcessID=PID;
 	// Change the process' state
+	ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,PID,programList[processTable[PID].programListIndex]->executableName,statesNames[1],statesNames[2]);
 	processTable[PID].state=EXECUTING;
 	// Modify hardware registers with appropriate values for the process identified by PID
 	OperatingSystem_RestoreContext(PID);
@@ -377,7 +384,7 @@ void OperatingSystem_HandleException() {
 
 // All tasks regarding the removal of the executing process
 void OperatingSystem_TerminateExecutingProcess() {
-
+	ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,statesNames[2],statesNames[4]);
 	processTable[executingProcessID].state=EXIT;
 	
 	if (executingProcessID==sipID) {
@@ -441,4 +448,25 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 	}
 
 }
+
+void OperatingSystem_PrintReadyToRunQueue(){
+	ComputerSystem_DebugMessage(TIMED_MESSAGE,103,SHORTTERMSCHEDULE);
+	
+	for (int i=0;i<numberOfReadyToRunProcesses[ALLPROCESSESQUEUE];i++){
+
+		if(numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]==1){
+			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,107,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
+			continue;}
+
+		if(i==0 && numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]>1)
+			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,104,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
+
+		if (i>0 && i<numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]-1)
+			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,105,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
+
+		if(i==numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]-1)
+			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,106,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
+	}
+}
+
 

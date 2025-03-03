@@ -6,3 +6,8 @@
 
 101,User program list:\n
 102,\tProgram [@B%s@@] with arrival time [@B%d@@]\n
+103,\tReady-to-run processes queue:\n 
+104,\t\t[@G%d@@,%d],
+105, [@G%d@@,%d],
+106, [@G%d@@,%d]\n
+107,\t\t[@G%d@@,%d]\n
