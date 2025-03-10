@@ -11,3 +11,10 @@
 105, [@G%d@@,%d],
 106, [@G%d@@,%d]\n
 107,\t\t[@G%d@@,%d]\n
+108,\tReady-to-run processes queues:\n
+109,\t\t%s: 
+110, [@G%d@@,%d]
+111,\t\t%s: [@G%d@@,%d]
+112,, [@G%d@@,%d]
+113,\n
+

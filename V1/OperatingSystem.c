@@ -22,7 +22,7 @@ void OperatingSystem_PreemptRunningProcess();
 int OperatingSystem_CreateProcess(int);
 int OperatingSystem_ObtainMainMemory(int, int);
 int OperatingSystem_ShortTermScheduler();
-int OperatingSystem_ExtractFromReadyToRun();
+int OperatingSystem_ExtractFromReadyToRun(int);
 void OperatingSystem_HandleException();
 void OperatingSystem_HandleSystemCall();
 
@@ -49,9 +49,10 @@ int initialPID=-1;
 // int baseDaemonsInProgramList; 
 
 // Array that contains the identifiers of the READY processes
-// heapItem readyToRunQueue[NUMBEROFQUEUES][PROCESSTABLEMAXSIZE];
-heapItem *readyToRunQueue[NUMBEROFQUEUES];
-int numberOfReadyToRunProcesses[NUMBEROFQUEUES]={0};
+ heapItem *readyToRunQueue[NUMBEROFQUEUES];
+// int numberOfReadyToRunProcesses[0]={0};
+int numberOfReadyToRunProcesses[NUMBEROFQUEUES]={0,0};
+char * queueNames [NUMBEROFQUEUES]={"USER","DAEMONS"};
 
 // Variable containing the number of not terminated user processes
 int numberOfNotTerminatedUserProcesses=0;
@@ -81,13 +82,16 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 	MAINMEMORYSECTIONSIZE = OS_address_base / PROCESSTABLEMAXSIZE;
 
 	if (initialPID<0) // if not assigned in options...
-		initialPID=PROCESSTABLEMAXSIZE; 
+		initialPID=PROCESSTABLEMAXSIZE-1; 
 	
 	// Space for the processTable
 	processTable = (PCB *) malloc(PROCESSTABLEMAXSIZE*sizeof(PCB));
 	
 	// Space for the ready to run queues (one queue initially...)
-	readyToRunQueue[ALLPROCESSESQUEUE] = Heap_create(PROCESSTABLEMAXSIZE);
+	 for (i = 0; i < NUMBEROFQUEUES; i++) {
+        readyToRunQueue[i] = Heap_create(PROCESSTABLEMAXSIZE);
+    }
+
 
 	programFile=fopen("OperatingSystemCode", "r");
 	if (programFile==NULL){
@@ -262,32 +266,34 @@ int OperatingSystem_ObtainMainMemory(int processSize, int PID) {
 
 // Assign initial values to all fields inside the PCB
 void OperatingSystem_PCBInitialization(int PID, int initialPhysicalAddress, int processSize, int priority, int processPLIndex) {
+    processTable[PID].busy = 1;
+    processTable[PID].initialPhysicalAddress = initialPhysicalAddress;
+    processTable[PID].processSize = processSize;
+    processTable[PID].copyOfSPRegister = initialPhysicalAddress + processSize;
+    processTable[PID].state = NEW;
+    processTable[PID].priority = priority;
+    processTable[PID].programListIndex = processPLIndex;
 
-	processTable[PID].busy=1;
-	processTable[PID].initialPhysicalAddress=initialPhysicalAddress;
-	processTable[PID].processSize=processSize;
-	processTable[PID].copyOfSPRegister=initialPhysicalAddress+processSize;
-	processTable[PID].state=NEW;
-	processTable[PID].priority=priority;
-	processTable[PID].programListIndex=processPLIndex;
-	// Daemons run in protected mode and MMU use real address
-	if (programList[processPLIndex]->type == DAEMONPROGRAM) {
-		processTable[PID].copyOfPCRegister=initialPhysicalAddress;
-		processTable[PID].copyOfPSWRegister= ((unsigned int) 1) << EXECUTION_MODE_BIT;
-	} 
-	else {
-		processTable[PID].copyOfPCRegister=0;
-		processTable[PID].copyOfPSWRegister=0;
-	}
-
+    // Asignar la cola dependiendo del tipo de proceso
+    if (programList[processPLIndex]->type == DAEMONPROGRAM) {
+        processTable[PID].queueID = DAEMONSQUEUE;
+        processTable[PID].copyOfPCRegister = initialPhysicalAddress;
+        processTable[PID].copyOfPSWRegister = ((unsigned int)1) << EXECUTION_MODE_BIT;
+    } else {
+        processTable[PID].queueID = USERPROCESSQUEUE;
+        processTable[PID].copyOfPCRegister = 0;
+        processTable[PID].copyOfPSWRegister = 0;
+    }
 }
+
 
 
 // Move a process to the READY state: it will be inserted, depending on its priority, in
 // a queue of identifiers of READY processes
 void OperatingSystem_MoveToTheREADYState(int PID) {
+	int queueID = processTable[PID].queueID;
 	
-	if (Heap_add(PID, readyToRunQueue[ALLPROCESSESQUEUE],QUEUE_PRIORITY ,&(numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]))>=0) {
+	if (Heap_add(PID, readyToRunQueue[queueID],QUEUE_PRIORITY ,&(numberOfReadyToRunProcesses[queueID]))>=0) {
 		processTable[PID].state=READY;
 	} 
 
@@ -302,18 +308,22 @@ int OperatingSystem_ShortTermScheduler() {
 	
 	int selectedProcess;
 
-	selectedProcess=OperatingSystem_ExtractFromReadyToRun();
+	if (numberOfReadyToRunProcesses[USERPROCESSQUEUE] > 0) {
+        selectedProcess = OperatingSystem_ExtractFromReadyToRun(USERPROCESSQUEUE);
+    } else if (numberOfReadyToRunProcesses[DAEMONSQUEUE] > 0) {
+        selectedProcess = OperatingSystem_ExtractFromReadyToRun(DAEMONSQUEUE);
+    }
 	
 	return selectedProcess;
 }
 
 
 // Return PID of more priority process in the READY queue
-int OperatingSystem_ExtractFromReadyToRun() {
+int OperatingSystem_ExtractFromReadyToRun(int queueID) {
   
 	int selectedProcess=NOPROCESS;
 
-	selectedProcess=Heap_poll(readyToRunQueue[ALLPROCESSESQUEUE],QUEUE_PRIORITY ,&(numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]));
+	selectedProcess=Heap_poll(readyToRunQueue[queueID],QUEUE_PRIORITY ,&(numberOfReadyToRunProcesses[queueID]));
 	
 	// Return most priority process or NOPROCESS if empty queue
 	return selectedProcess; 
@@ -449,24 +459,37 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 
 }
 
-void OperatingSystem_PrintReadyToRunQueue(){
-	ComputerSystem_DebugMessage(TIMED_MESSAGE,103,SHORTTERMSCHEDULE);
-	
-	for (int i=0;i<numberOfReadyToRunProcesses[ALLPROCESSESQUEUE];i++){
+void OperatingSystem_PrintReadyToRunQueue() {
+    // Print the header for the ready-to-run queues
+    ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 108, SHORTTERMSCHEDULE);
 
-		if(numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]==1){
-			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,107,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
-			continue;}
+    // Iterate through the queues
+    for (int q = 0; q < NUMBEROFQUEUES; q++) {
+        // Print queue name
+        if (numberOfReadyToRunProcesses[q] == 0) {
+            // If queue is empty, print only the name followed by ":"
+            ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 109, SHORTTERMSCHEDULE, queueNames[q]);
+            continue;
+        }
 
-		if(i==0 && numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]>1)
-			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,104,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
+        // Print queue name followed by first process
+        int PID = readyToRunQueue[q][0].info;
+        int priority = processTable[PID].priority;
+        ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 111, SHORTTERMSCHEDULE, queueNames[q], PID, priority);
 
-		if (i>0 && i<numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]-1)
-			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,105,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
+        // Print remaining processes in the queue
+        for (int i = 1; i < numberOfReadyToRunProcesses[q]; i++) {
+            PID = readyToRunQueue[q][i].info;
+            priority = processTable[PID].priority;
+            ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 112, SHORTTERMSCHEDULE, PID, priority);
+        }
 
-		if(i==numberOfReadyToRunProcesses[ALLPROCESSESQUEUE]-1)
-			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,106,SHORTTERMSCHEDULE,readyToRunQueue[ALLPROCESSESQUEUE][i].info,processTable[readyToRunQueue[ALLPROCESSESQUEUE][i].info].priority);
-	}
+        // Print newline at the end of the queue list
+        ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 113, SHORTTERMSCHEDULE);
+    }
 }
+
+
+
 
 
