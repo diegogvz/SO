@@ -394,35 +394,38 @@ void OperatingSystem_HandleException() {
 
 // All tasks regarding the removal of the executing process
 void OperatingSystem_TerminateExecutingProcess() {
-	ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,statesNames[2],statesNames[4]);
-	processTable[executingProcessID].state=EXIT;
-	
-	if (executingProcessID==sipID) {
-		// finishing sipID, change PC to address of OS HALT instruction
-		Processor_SetSSP(MAINMEMORYSIZE-1);
-		Processor_PushInSystemStack(OS_address_base+1);
-		Processor_PushInSystemStack(Processor_GetPSW());
-		executingProcessID=NOPROCESS;
-		ComputerSystem_DebugMessage(TIMED_MESSAGE,99,SHUTDOWN,"The system will shut down now...\n");
-		return; // Don't dispatch any process
-	}
+    ComputerSystem_DebugMessage(TIMED_MESSAGE, 53, SYSPROC, executingProcessID,
+        programList[processTable[executingProcessID].programListIndex]->executableName,
+        statesNames[2], statesNames[4]);
 
-	Processor_SetSSP(Processor_GetSSP()+2); // unstack PC and PSW stacked
+    processTable[executingProcessID].state = EXIT;
 
-	if (programList[processTable[executingProcessID].programListIndex]->type==USERPROGRAM) 
-		// One more user process that has terminated
-		numberOfNotTerminatedUserProcesses--;
-	
-	if (numberOfNotTerminatedUserProcesses==0) {
-		// Simulation must finish, telling sipID to finish
-		OperatingSystem_ReadyToShutdown();
-	}
-	// Select the next process to execute (sipID if no more user processes)
-	int selectedProcess=OperatingSystem_ShortTermScheduler();
+    // If the terminated process is SystemIdleProcess, shut down the system
+    if (executingProcessID == sipID) {
+        Processor_SetSSP(MAINMEMORYSIZE - 1);
+        Processor_PushInSystemStack(OS_address_base + 1);
+        Processor_PushInSystemStack(Processor_GetPSW());
+        executingProcessID = NOPROCESS;
+        ComputerSystem_DebugMessage(TIMED_MESSAGE, 99, SHUTDOWN, "The system will shut down now...\n");
+        return;
+    }
 
-	// Assign the processor to that process
-	OperatingSystem_Dispatch(selectedProcess);
+    Processor_SetSSP(Processor_GetSSP() + 2); // Unstack PC and PSW
+
+    if (programList[processTable[executingProcessID].programListIndex]->type == USERPROGRAM) {
+        numberOfNotTerminatedUserProcesses--;
+    }
+
+    // If no user processes remain, shutdown the system
+    if (numberOfNotTerminatedUserProcesses == 0) {
+        OperatingSystem_ReadyToShutdown();
+    }
+
+    // Select next process
+    int selectedProcess = OperatingSystem_ShortTermScheduler();
+    OperatingSystem_Dispatch(selectedProcess);
 }
+
 
 // System call management routine
 void OperatingSystem_HandleSystemCall() {
@@ -437,7 +440,36 @@ void OperatingSystem_HandleSystemCall() {
 			// Show message: "Process [executingProcessID] has the processor assigned\n"
 			ComputerSystem_DebugMessage(TIMED_MESSAGE,72,SYSPROC,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,Processor_GetRegisterA(),Processor_GetRegisterB());
 			break;
+		
+		case SYSCALL_YIELD: 
+			  int queueID = processTable[executingProcessID].queueID;  // Get executing process queue
+    int executingPriority = processTable[executingProcessID].priority;
 
+    // Check if there's another process in the same queue with the same priority
+    if (numberOfReadyToRunProcesses[queueID] > 0) {
+        int frontPID = readyToRunQueue[queueID][0].info;
+        int frontPriority = processTable[frontPID].priority;
+
+        // The process at the front must have the same priority
+        if (frontPriority == executingPriority) {
+            // Print message 55 - process relinquishing control
+            ComputerSystem_DebugMessage(TIMED_MESSAGE, 55, SHORTTERMSCHEDULE,
+                executingProcessID, programList[processTable[executingProcessID].programListIndex]->executableName,
+                frontPID, programList[processTable[frontPID].programListIndex]->executableName);
+
+            // Preempt and give CPU to the front process
+            OperatingSystem_PreemptRunningProcess();
+            int selectedProcess = OperatingSystem_ShortTermScheduler();
+            OperatingSystem_Dispatch(selectedProcess);
+            return;
+        }
+    }
+
+    // No eligible process found, print message 56 - no transfer
+    ComputerSystem_DebugMessage(TIMED_MESSAGE, 56, SHORTTERMSCHEDULE,
+        executingProcessID, programList[processTable[executingProcessID].programListIndex]->executableName);
+   
+			break;
 		case SYSCALL_END:
 			// Show message: "Process [executingProcessID] has requested to terminate\n"
 			ComputerSystem_DebugMessage(TIMED_MESSAGE,73,SYSPROC,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName);

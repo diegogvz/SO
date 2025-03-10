@@ -224,30 +224,39 @@ void Processor_DecodeAndExecuteInstruction() {
 			Processor_CheckOverflow(tempAcc,operand1,operand2);
 			registerPC_CPU++;
 			break;
-
-		// Instruction HALT
+		//Instruction HALT
 		case HALT_INST: 
-			Processor_ActivatePSW_Bit(POWEROFF_BIT);
+			if (!Processor_PSW_BitState(EXECUTION_MODE_BIT)) {
+				Processor_RaiseInterrupt(EXCEPTION_BIT);
+			} else {
+				Processor_ActivatePSW_Bit(POWEROFF_BIT);
+			}
 			break;
-			  
-		// Instruction OS
-		case OS_INST: // Make a operating system routine in entry point indicated by operand1
-			// Show final part of HARDWARE message with CPU registers
-			// Show message: " (PC: registerPC_CPU, Accumulator: registerAccumulator_CPU, PSW: registerPSW_CPU [Processor_ShowPSW()]\n
-			ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,69, HARDWARE, InstructionNames[operationCode],operand1,operand2,OperatingSystem_GetExecutingProcessID(),registerPC_CPU,registerAccumulator_CPU,registerPSW_CPU,Processor_ShowPSW(),interruptLines_CPU);
+		//Instruction OS
+		case OS_INST: 
+			if (!Processor_PSW_BitState(EXECUTION_MODE_BIT)) {
+				Processor_RaiseInterrupt(EXCEPTION_BIT);
+			} else {
+				ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 69, HARDWARE, 
+					InstructionNames[operationCode], operand1, operand2, 
+					OperatingSystem_GetExecutingProcessID(), registerPC_CPU, 
+					registerAccumulator_CPU, registerPSW_CPU, 
+					Processor_ShowPSW(), interruptLines_CPU);
 
-			// Not all operating system code is executed in simulated processor, but really must do it... 
-			OperatingSystem_InterruptLogic(operand1);
-			registerPC_CPU++;
-			// Update PSW bits (ZERO_BIT, NEGATIVE_BIT, ...)
-			Processor_UpdatePSW();
-			return; // Note: message show before... for operating system messages after...
-
-		// Instruction IRET
-		case IRET_INST: // Return from a interrupt handle manager call
-			registerPSW_CPU=Processor_PopFromSystemStack();
-			registerPC_CPU=Processor_PopFromSystemStack();
-			break;		
+				OperatingSystem_InterruptLogic(operand1);
+				registerPC_CPU++;
+				Processor_UpdatePSW();
+			}
+			return;
+		//Instruction IRET
+		case IRET_INST: 
+			if (!Processor_PSW_BitState(EXECUTION_MODE_BIT)) {
+				Processor_RaiseInterrupt(EXCEPTION_BIT);
+			} else {
+				registerPSW_CPU = Processor_PopFromSystemStack();
+				registerPC_CPU = Processor_PopFromSystemStack();
+			}
+			break;
 
 		case MOV_INST: // Copy data between processor registers
 			switch (operand1) {
