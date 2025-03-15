@@ -1,5 +1,8 @@
 {
+    "debug.inlineValues": true,
     "files.associations": {
-        "*.def": "c"
-    }
+        "*.def": "c",
+        "prog-v1-e3": "cpp"
+    },
+
 }

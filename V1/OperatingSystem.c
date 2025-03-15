@@ -126,13 +126,17 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 	OperatingSystem_PrepareDaemons(programsFromFileIndex);
 	
 	// Create all user processes from the information given in the command line
-	OperatingSystem_LongTermScheduler();
-	
+	int userPrograms = OperatingSystem_LongTermScheduler();
+		
 	if (strcmp(programList[processTable[sipID].programListIndex]->executableName,"SystemIdleProcess")
 		&& processTable[sipID].state==READY) {
 		// Show red message "FATAL ERROR: Missing SIP program!\n"
 		ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,99,SHUTDOWN,"FATAL ERROR: Missing SIP program!\n");
 		exit(1);		
+	}
+
+	if(userPrograms==0){
+		OperatingSystem_ReadyToShutdown();
 	}
 
 	// At least, one process has been created
@@ -147,6 +151,14 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 	// Initial operation for Operating System
 	Processor_SetPC(OS_address_base);
 
+	if (executingProcessID == sipID) {
+        Processor_SetSSP(MAINMEMORYSIZE - 1);
+        Processor_PushInSystemStack(OS_address_base + 1);
+        Processor_PushInSystemStack(Processor_GetPSW());
+        executingProcessID = NOPROCESS;
+        ComputerSystem_DebugMessage(TIMED_MESSAGE, 99, SHUTDOWN, "The system will shut down now...\n");
+        return;
+    }
 }
 
 // The LTS is responsible of the admission of new processes in the system.
