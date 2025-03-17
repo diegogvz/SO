@@ -245,7 +245,7 @@ int OperatingSystem_CreateProcess(int indexOfExecutableProgram) {
  	loadingPhysicalAddress=OperatingSystem_ObtainMainMemory(processSize, PID);
 	if (loadingPhysicalAddress==TOOBIGPROCESS)
 	{
-		return TOOBIGPROCESS;
+		return PROGRAMNOTVALID;
 	}
 	
 
@@ -392,6 +392,8 @@ void OperatingSystem_SaveContext(int PID) {
 	
 	// Save RegisterSP 
 	processTable[PID].copyOfSPRegister=Processor_GetRegisterSP();
+
+	processTable[PID].copyOfAccumulator=Processor_GetAccumulator();
 }
 
 

@@ -37,6 +37,7 @@ typedef struct {
 	int priority;
 	int copyOfPCRegister;
 	unsigned int copyOfPSWRegister;
+	int copyOfAccumulator;
 	int programListIndex;
 	int queueID;
 } PCB;
