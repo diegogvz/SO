@@ -5,7 +5,7 @@
             "name": "Launch Simulator",
             "type": "cppdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/Simulator",
+            "program": "${workspaceFolder}/Simulator.c",
             "args": [],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

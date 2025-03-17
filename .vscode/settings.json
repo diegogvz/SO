@@ -2,7 +2,9 @@
     "debug.inlineValues": true,
     "files.associations": {
         "*.def": "c",
-        "prog-v1-e3": "cpp"
+        "prog-v1-e3": "cpp",
+        "clock.h": "c",
+        "computersystembase.h": "c"
     },
 
 }

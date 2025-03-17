@@ -25,6 +25,8 @@ int OperatingSystem_ShortTermScheduler();
 int OperatingSystem_ExtractFromReadyToRun(int);
 void OperatingSystem_HandleException();
 void OperatingSystem_HandleSystemCall();
+void OperatingSystem_PrintReadyToRunQueue();
+void OperatingSystem_HandleClockInterrupt();
 
 // The process table
 // PCB processTable[PROCESSTABLEMAXSIZE];
@@ -56,6 +58,9 @@ char * queueNames [NUMBEROFQUEUES]={"USER","DAEMONS"};
 
 // Variable containing the number of not terminated user processes
 int numberOfNotTerminatedUserProcesses=0;
+
+//Exercise 1-e V2
+int numberOfClockInterrupts=0;
 
 // char DAEMONS_PROGRAMS_FILE[MAXFILENAMELENGTH]="teachersDaemons";
 
@@ -121,8 +126,6 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 		processTable[i].copyOfAccumulator=0;
 		processTable[i].copyOfRegisterA=0;
 		processTable[i].copyOfRegisterB=0;
-		
-
 	}
 	// Initialization of the interrupt vector table of the processor
 	Processor_InitializeInterruptVectorTable(OS_address_base+2);
@@ -399,8 +402,6 @@ void OperatingSystem_SaveContext(int PID) {
 	processTable[PID].copyOfSPRegister=Processor_GetRegisterSP();
 
 	processTable[PID].copyOfAccumulator=Processor_GetAccumulator();
-	processTable[PID].copyOfRegisterA=Processor_GetRegisterA();
-	processTable[PID].copyOfRegisterB=Processor_GetRegisterB();
 }
 
 
@@ -508,6 +509,9 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 		case EXCEPTION_BIT: // EXCEPTION_BIT=6
 			OperatingSystem_HandleException();
 			break;
+		case CLOCKINT_BIT:
+			OperatingSystem_HandleClockInterrupt();
+			break;
 	}
 
 }
@@ -542,6 +546,12 @@ void OperatingSystem_PrintReadyToRunQueue() {
     }
 }
 
+// In OperatingSystem.c Exercise 1-b of V2
+void OperatingSystem_HandleClockInterrupt(){ 
+	numberOfClockInterrupts++;
+	ComputerSystem_DebugMessage(TIMED_MESSAGE,57,INTERRUPT,numberOfClockInterrupts);
+	
+} 
 
 
 
