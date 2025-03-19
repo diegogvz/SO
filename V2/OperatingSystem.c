@@ -167,6 +167,8 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
         ComputerSystem_DebugMessage(TIMED_MESSAGE, 99, SHUTDOWN, "The system will shut down now...\n");
         return;
     }
+
+	OperatingSystem_PrintStatus();
 }
 
 // The LTS is responsible of the admission of new processes in the system.
@@ -208,6 +210,9 @@ int OperatingSystem_LongTermScheduler() {
 		ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,PID,programList[processTable[PID].programListIndex]->executableName,statesNames[0],statesNames[1]);
 		OperatingSystem_MoveToTheREADYState(PID);
 	
+	}
+	if(numberOfSuccessfullyCreatedProcesses>0){
+		OperatingSystem_PrintStatus();
 	}
 
 	// Return the number of succesfully created processes
@@ -317,7 +322,6 @@ void OperatingSystem_MoveToTheREADYState(int PID) {
 		processTable[PID].state=READY;
 	} 
 
-	OperatingSystem_PrintReadyToRunQueue();
 }
 
 
@@ -412,6 +416,7 @@ void OperatingSystem_HandleException() {
 	ComputerSystem_DebugMessage(TIMED_MESSAGE,71,INTERRUPT,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName);
 	
 	OperatingSystem_TerminateExecutingProcess();
+	OperatingSystem_PrintStatus();
 }
 
 // All tasks regarding the removal of the executing process
@@ -464,38 +469,40 @@ void OperatingSystem_HandleSystemCall() {
 			break;
 		
 		case SYSCALL_YIELD: 
-			  int queueID = processTable[executingProcessID].queueID;  // Get executing process queue
-    int executingPriority = processTable[executingProcessID].priority;
+			int queueID = processTable[executingProcessID].queueID;  // Get executing process queue
+    		int executingPriority = processTable[executingProcessID].priority;
 
-    // Check if there's another process in the same queue with the same priority
-    if (numberOfReadyToRunProcesses[queueID] > 0) {
-        int frontPID = readyToRunQueue[queueID][0].info;
-        int frontPriority = processTable[frontPID].priority;
+			// Check if there's another process in the same queue with the same priority
+			if (numberOfReadyToRunProcesses[queueID] > 0) {
+				int frontPID = readyToRunQueue[queueID][0].info;
+				int frontPriority = processTable[frontPID].priority;
 
-        // The process at the front must have the same priority
-        if (frontPriority == executingPriority) {
-            // Print message 55 - process relinquishing control
-            ComputerSystem_DebugMessage(TIMED_MESSAGE, 55, SHORTTERMSCHEDULE,
-                executingProcessID, programList[processTable[executingProcessID].programListIndex]->executableName,
-                frontPID, programList[processTable[frontPID].programListIndex]->executableName);
+				// The process at the front must have the same priority
+				if (frontPriority == executingPriority) {
+					// Print message 55 - process relinquishing control
+					ComputerSystem_DebugMessage(TIMED_MESSAGE, 55, SHORTTERMSCHEDULE,
+						executingProcessID, programList[processTable[executingProcessID].programListIndex]->executableName,
+						frontPID, programList[processTable[frontPID].programListIndex]->executableName);
 
-            // Preempt and give CPU to the front process
-            OperatingSystem_PreemptRunningProcess();
-            int selectedProcess = OperatingSystem_ShortTermScheduler();
-            OperatingSystem_Dispatch(selectedProcess);
-            return;
-        }
-    }
-
-    // No eligible process found, print message 56 - no transfer
-    ComputerSystem_DebugMessage(TIMED_MESSAGE, 56, SHORTTERMSCHEDULE,
-        executingProcessID, programList[processTable[executingProcessID].programListIndex]->executableName);
+					// Preempt and give CPU to the front process
+					OperatingSystem_PreemptRunningProcess();
+					int selectedProcess = OperatingSystem_ShortTermScheduler();
+					OperatingSystem_Dispatch(selectedProcess);
+					OperatingSystem_PrintStatus();
+					return;
+				}
+			
+    		}
+			// No eligible process found, print message 56 - no transfer
+			ComputerSystem_DebugMessage(TIMED_MESSAGE, 56, SHORTTERMSCHEDULE,
+				executingProcessID, programList[processTable[executingProcessID].programListIndex]->executableName);
    
 			break;
 		case SYSCALL_END:
 			// Show message: "Process [executingProcessID] has requested to terminate\n"
 			ComputerSystem_DebugMessage(TIMED_MESSAGE,73,SYSPROC,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName);
 			OperatingSystem_TerminateExecutingProcess();
+			OperatingSystem_PrintStatus();
 			break;
 	}
 }

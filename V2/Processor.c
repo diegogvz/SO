@@ -346,7 +346,8 @@ void Processor_DecodeAndExecuteInstruction() {
 // Hardware interrupt processing
 void Processor_ManageInterrupts() {
 	if(!Processor_PSW_BitState(INTERRUPT_MASKED_BIT))
-		{int i;
+		{
+			int i;
 
 			for (i=0;i<INTERRUPTTYPES;i++)
 				// If an 'i'-type interrupt is pending
@@ -356,7 +357,6 @@ void Processor_ManageInterrupts() {
 					// Copy PC and PSW registers in the system stack
 					Processor_PushInSystemStack(registerPC_CPU);
 					Processor_PushInSystemStack(registerPSW_CPU);	
-
 					Processor_ActivatePSW_Bit(INTERRUPT_MASKED_BIT);
 					// Activate protected excution mode
 					Processor_ActivatePSW_Bit(EXECUTION_MODE_BIT);
