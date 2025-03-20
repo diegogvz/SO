@@ -27,6 +27,8 @@ int registerA_CPU; // General purpose register
 int registerB_CPU; // General purpose register
 int registerC_CPU; // System purpose register
 
+int registerD_CPU; //V2 ex 5.d
+
 int registerSP_CPU; // Stack pointer register
 int interruptLines_CPU; // Processor interrupt lines
 
@@ -129,6 +131,7 @@ void Processor_DecodeAndExecuteInstruction() {
 		case TRAP_INST: 
 			Processor_RaiseInterrupt(SYSCALL_BIT);
 			registerC_CPU=operand1;
+			registerD_CPU=operand2;
 			registerPC_CPU++;
 			break;
 		

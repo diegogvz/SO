@@ -53,6 +53,8 @@ void Processor_SetPC(int);
 // routine, so it will be able to know the invoked system call identifier
 int Processor_GetRegisterC();
 
+int Processor_GetRegisterD();
+
 // The OS needs to access register A to when executing the PRINTPID system call
 int Processor_GetRegisterA();
 
@@ -70,6 +72,8 @@ void Processor_SetRegisterA(int);
 
 // The OS needs to access registerB
 void Processor_SetRegisterB(int);
+
+void Processor_SetRegisterD(int);
 
 // The OS needs to access the PSW register to restore the context of
 // the process to which the processor is being assigned

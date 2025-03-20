@@ -27,6 +27,8 @@ void OperatingSystem_HandleException();
 void OperatingSystem_HandleSystemCall();
 void OperatingSystem_PrintReadyToRunQueue();
 void OperatingSystem_HandleClockInterrupt();
+void OperatingSystem_MoveToTheBLOCKEDState();
+int OperatingSystem_ExtractFromSleepingQueue();
 
 // The process table
 // PCB processTable[PROCESSTABLEMAXSIZE];
@@ -72,6 +74,12 @@ int PROCESSTABLEMAXSIZE = 4;
 
 char * statesNames[5]={"NEW","READY","EXECUTING","BLOCKED","EXIT"};
 
+// In OperatingSystem.c Exercise 5-b of V2
+// Heap with blocked processes sorted by when to wakeup
+heapItem *sleepingProcessesQueue;
+int numberOfSleepingProcesses=0;
+
+
 // Initial set of tasks of the OS
 void OperatingSystem_Initialize(int programsFromFileIndex) {
 	
@@ -96,6 +104,8 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 	 for (i = 0; i < NUMBEROFQUEUES; i++) {
         readyToRunQueue[i] = Heap_create(PROCESSTABLEMAXSIZE);
     }
+
+	sleepingProcessesQueue = Heap_create(PROCESSTABLEMAXSIZE);
 
 
 	programFile=fopen("OperatingSystemCode", "r");
@@ -126,6 +136,7 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 		processTable[i].copyOfAccumulator=0;
 		processTable[i].copyOfRegisterA=0;
 		processTable[i].copyOfRegisterB=0;
+		processTable[i].whenToWakeUp=-1;
 	}
 	// Initialization of the interrupt vector table of the processor
 	Processor_InitializeInterruptVectorTable(OS_address_base+2);
@@ -504,6 +515,10 @@ void OperatingSystem_HandleSystemCall() {
 			OperatingSystem_TerminateExecutingProcess();
 			OperatingSystem_PrintStatus();
 			break;
+		case SYSCALL_SLEEP:
+			OperatingSystem_MoveToTheBLOCKEDState(Processor_GetRegisterD());
+			OperatingSystem_PrintStatus();
+			break;
 	}
 }
 	
@@ -561,5 +576,31 @@ void OperatingSystem_HandleClockInterrupt(){
 } 
 
 
+void OperatingSystem_MoveToTheBLOCKEDState(int regD) {
+	
+	processTable[executingProcessID].state = BLOCKED;
+	if(regD>0){
+		processTable[executingProcessID].whenToWakeUp = regD + numberOfClockInterrupts + 1;
+	}
+	else{
+		processTable[executingProcessID].whenToWakeUp = abs(Processor_GetAccumulator()) + numberOfClockInterrupts + 1;
+	}
+	
+	OperatingSystem_SaveContext(executingProcessID);
+	
+	Heap_add(executingProcessID,sleepingProcessesQueue, QUEUE_WAKEUP ,&(numberOfSleepingProcesses));
+
+}
+
+// Return PID of more priority process in the READY queue
+int OperatingSystem_ExtractFromSleepingQueue() {
+  
+	int selectedProcess=NOPROCESS;
+
+	selectedProcess=Heap_poll(sleepingProcessesQueue,QUEUE_WAKEUP ,&(numberOfSleepingProcesses));
+	
+	// Return most priority process or NOPROCESS if empty queue
+	return selectedProcess; 
+}
 
 
