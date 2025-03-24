@@ -19,6 +19,7 @@ void OperatingSystem_SaveContext(int);
 void OperatingSystem_TerminateExecutingProcess();
 int OperatingSystem_LongTermScheduler();
 void OperatingSystem_PreemptRunningProcess();
+void OperatingSystem_BLOCK_Process();
 int OperatingSystem_CreateProcess(int);
 int OperatingSystem_ObtainMainMemory(int, int);
 int OperatingSystem_ShortTermScheduler();
@@ -469,7 +470,8 @@ void OperatingSystem_TerminateExecutingProcess() {
 void OperatingSystem_HandleSystemCall() {
   
 	int systemCallID;
-
+	int queueID;
+	int executingPriority;
 	// Register A contains the identifier of the issued system call
 	systemCallID=Processor_GetRegisterC();
 	
@@ -480,8 +482,8 @@ void OperatingSystem_HandleSystemCall() {
 			break;
 		
 		case SYSCALL_YIELD: 
-			int queueID = processTable[executingProcessID].queueID;  // Get executing process queue
-    		int executingPriority = processTable[executingProcessID].priority;
+			queueID = processTable[executingProcessID].queueID;  // Get executing process queue
+    		executingPriority = processTable[executingProcessID].priority;
 
 			// Check if there's another process in the same queue with the same priority
 			if (numberOfReadyToRunProcesses[queueID] > 0) {
@@ -516,7 +518,7 @@ void OperatingSystem_HandleSystemCall() {
 			OperatingSystem_PrintStatus();
 			break;
 		case SYSCALL_SLEEP:
-			OperatingSystem_MoveToTheBLOCKEDState(Processor_GetRegisterD());
+			OperatingSystem_BLOCK_Process(Processor_GetRegisterD());
 			OperatingSystem_PrintStatus();
 			break;
 	}
@@ -572,9 +574,39 @@ void OperatingSystem_PrintReadyToRunQueue() {
 void OperatingSystem_HandleClockInterrupt(){ 
 	numberOfClockInterrupts++;
 	ComputerSystem_DebugMessage(TIMED_MESSAGE,57,INTERRUPT,numberOfClockInterrupts);
+	int first=Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
+	int process = NOPROCESS;
+	while (processTable[first].whenToWakeUp == numberOfClockInterrupts){
+		processTable[first].whenToWakeUp=-1;
+		processTable[first].state = READY;
+		process = OperatingSystem_ExtractFromSleepingQueue();
+		OperatingSystem_MoveToTheREADYState(process);
+		first = Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
+	}
+
+	if (process!=NOPROCESS)
+	{
+		OperatingSystem_PrintStatus();
+	}
+
+	int queueID = processTable[executingProcessID].queueID;
+	if(processTable[executingProcessID].priority < 
+	processTable[Heap_getFirst(readyToRunQueue[queueID],PROCESSTABLEMAXSIZE)].priority){
+		OperatingSystem_PreemptRunningProcess();
+		int selectedProcess = OperatingSystem_ShortTermScheduler();
+		OperatingSystem_Dispatch(selectedProcess);
+		OperatingSystem_PrintStatus();
+	}
 	
 } 
 
+void OperatingSystem_BLOCK_Process(){
+	OperatingSystem_SaveContext(executingProcessID);
+	OperatingSystem_MoveToTheBLOCKEDState(Processor_GetRegisterD());
+	executingProcessID = NOPROCESS;
+	int selectedProcess = OperatingSystem_ShortTermScheduler();
+	OperatingSystem_Dispatch(selectedProcess);
+}
 
 void OperatingSystem_MoveToTheBLOCKEDState(int regD) {
 	
@@ -585,9 +617,7 @@ void OperatingSystem_MoveToTheBLOCKEDState(int regD) {
 	else{
 		processTable[executingProcessID].whenToWakeUp = abs(Processor_GetAccumulator()) + numberOfClockInterrupts + 1;
 	}
-	
-	OperatingSystem_SaveContext(executingProcessID);
-	
+		
 	Heap_add(executingProcessID,sleepingProcessesQueue, QUEUE_WAKEUP ,&(numberOfSleepingProcesses));
 
 }
