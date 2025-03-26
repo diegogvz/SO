@@ -30,6 +30,8 @@ void OperatingSystem_PrintReadyToRunQueue();
 void OperatingSystem_HandleClockInterrupt();
 void OperatingSystem_MoveToTheBLOCKEDState();
 int OperatingSystem_ExtractFromSleepingQueue();
+void OperatingSystem_WakeUpProcesses();
+void checkPriorityAfterWakeUp();
 
 // The process table
 // PCB processTable[PROCESSTABLEMAXSIZE];
@@ -518,7 +520,10 @@ void OperatingSystem_HandleSystemCall() {
 			OperatingSystem_PrintStatus();
 			break;
 		case SYSCALL_SLEEP:
+			ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,statesNames[2],statesNames[3]);
 			OperatingSystem_BLOCK_Process(Processor_GetRegisterD());
+			int selectedProcess = OperatingSystem_ShortTermScheduler();
+			OperatingSystem_Dispatch(selectedProcess);
 			OperatingSystem_PrintStatus();
 			break;
 	}
@@ -574,38 +579,69 @@ void OperatingSystem_PrintReadyToRunQueue() {
 void OperatingSystem_HandleClockInterrupt(){ 
 	numberOfClockInterrupts++;
 	ComputerSystem_DebugMessage(TIMED_MESSAGE,57,INTERRUPT,numberOfClockInterrupts);
+
+	OperatingSystem_WakeUpProcesses();
+	
+} 
+void OperatingSystem_WakeUpProcesses(){
 	int first=Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
 	int process = NOPROCESS;
-	while (processTable[first].whenToWakeUp == numberOfClockInterrupts){
+	while (first != NOPROCESS && processTable[first].whenToWakeUp == numberOfClockInterrupts){
+		ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,first,programList[processTable[first].programListIndex]->executableName,statesNames[3],statesNames[1]);
 		processTable[first].whenToWakeUp=-1;
 		processTable[first].state = READY;
 		process = OperatingSystem_ExtractFromSleepingQueue();
 		OperatingSystem_MoveToTheREADYState(process);
 		first = Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
+		OperatingSystem_PrintStatus();
+
 	}
 
 	if (process!=NOPROCESS)
 	{
-		OperatingSystem_PrintStatus();
+		checkPriorityAfterWakeUp();
 	}
 
-	int queueID = processTable[executingProcessID].queueID;
-	if(processTable[executingProcessID].priority < 
-	processTable[Heap_getFirst(readyToRunQueue[queueID],PROCESSTABLEMAXSIZE)].priority){
-		OperatingSystem_PreemptRunningProcess();
-		int selectedProcess = OperatingSystem_ShortTermScheduler();
-		OperatingSystem_Dispatch(selectedProcess);
-		OperatingSystem_PrintStatus();
-	}
 	
-} 
+}
+
+void checkPriorityAfterWakeUp(){
+	
+	int queueID = processTable[executingProcessID].queueID;
+	if(queueID == USERPROCESSQUEUE){
+		if(processTable[executingProcessID].priority > 
+			processTable[Heap_getFirst(readyToRunQueue[queueID],PROCESSTABLEMAXSIZE)].priority){
+				OperatingSystem_PreemptRunningProcess();
+				int selectedProcess = OperatingSystem_ShortTermScheduler();
+				OperatingSystem_Dispatch(selectedProcess);
+				OperatingSystem_PrintStatus();
+			}
+	}
+	else
+	{
+		int aux = Heap_getFirst(readyToRunQueue[USERPROCESSQUEUE],PROCESSTABLEMAXSIZE);
+		if(aux != NOPROCESS){
+			OperatingSystem_PreemptRunningProcess();
+			int selectedProcess = OperatingSystem_ShortTermScheduler();
+			OperatingSystem_Dispatch(selectedProcess);
+			OperatingSystem_PrintStatus();
+		}
+		else{
+			if(processTable[executingProcessID].priority > 
+				processTable[Heap_getFirst(readyToRunQueue[DAEMONSQUEUE],PROCESSTABLEMAXSIZE)].priority){
+				OperatingSystem_PreemptRunningProcess();
+				int selectedProcess = OperatingSystem_ShortTermScheduler();
+				OperatingSystem_Dispatch(selectedProcess);
+				OperatingSystem_PrintStatus();
+				}
+		}
+	}
+}
 
 void OperatingSystem_BLOCK_Process(){
 	OperatingSystem_SaveContext(executingProcessID);
 	OperatingSystem_MoveToTheBLOCKEDState(Processor_GetRegisterD());
 	executingProcessID = NOPROCESS;
-	int selectedProcess = OperatingSystem_ShortTermScheduler();
-	OperatingSystem_Dispatch(selectedProcess);
 }
 
 void OperatingSystem_MoveToTheBLOCKEDState(int regD) {
