@@ -607,10 +607,12 @@ void OperatingSystem_WakeUpProcesses(){
 
 void checkPriorityAfterWakeUp(){
 	
-	int queueID = processTable[executingProcessID].queueID;
-	if(queueID == USERPROCESSQUEUE){
+	if(processTable[executingProcessID].queueID == USERPROCESSQUEUE){
 		if(processTable[executingProcessID].priority > 
-			processTable[Heap_getFirst(readyToRunQueue[queueID],PROCESSTABLEMAXSIZE)].priority){
+			processTable[Heap_getFirst(readyToRunQueue[processTable[executingProcessID].queueID],PROCESSTABLEMAXSIZE)].priority){
+				int aux = Heap_getFirst(readyToRunQueue[USERPROCESSQUEUE],PROCESSTABLEMAXSIZE);
+				ComputerSystem_DebugMessage(TIMED_MESSAGE,58,SHORTTERMSCHEDULE,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
+					aux,programList[processTable[aux].programListIndex]->executableName);
 				OperatingSystem_PreemptRunningProcess();
 				int selectedProcess = OperatingSystem_ShortTermScheduler();
 				OperatingSystem_Dispatch(selectedProcess);
@@ -619,8 +621,10 @@ void checkPriorityAfterWakeUp(){
 	}
 	else
 	{
-		int aux = Heap_getFirst(readyToRunQueue[USERPROCESSQUEUE],PROCESSTABLEMAXSIZE);
-		if(aux != NOPROCESS){
+		if(Heap_getFirst(readyToRunQueue[USERPROCESSQUEUE],PROCESSTABLEMAXSIZE) != NOPROCESS){
+			int aux = Heap_getFirst(readyToRunQueue[USERPROCESSQUEUE],PROCESSTABLEMAXSIZE);
+			ComputerSystem_DebugMessage(TIMED_MESSAGE,58,SHORTTERMSCHEDULE,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
+				aux,programList[processTable[aux].programListIndex]->executableName);
 			OperatingSystem_PreemptRunningProcess();
 			int selectedProcess = OperatingSystem_ShortTermScheduler();
 			OperatingSystem_Dispatch(selectedProcess);
@@ -629,11 +633,14 @@ void checkPriorityAfterWakeUp(){
 		else{
 			if(processTable[executingProcessID].priority > 
 				processTable[Heap_getFirst(readyToRunQueue[DAEMONSQUEUE],PROCESSTABLEMAXSIZE)].priority){
+				int aux = Heap_getFirst(readyToRunQueue[DAEMONSQUEUE],PROCESSTABLEMAXSIZE);
+				ComputerSystem_DebugMessage(TIMED_MESSAGE,58,SHORTTERMSCHEDULE,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
+					aux,programList[processTable[aux].programListIndex]->executableName);
+
 				OperatingSystem_PreemptRunningProcess();
 				int selectedProcess = OperatingSystem_ShortTermScheduler();
 				OperatingSystem_Dispatch(selectedProcess);
-				OperatingSystem_PrintStatus();
-				}
+			}
 		}
 	}
 }
