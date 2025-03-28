@@ -608,7 +608,7 @@ void OperatingSystem_WakeUpProcesses(){
 void checkPriorityAfterWakeUp(){
 	
 	if(processTable[executingProcessID].queueID == USERPROCESSQUEUE){
-		if(processTable[executingProcessID].priority > 
+		if(processTable[executingProcessID].priority < 
 			processTable[Heap_getFirst(readyToRunQueue[processTable[executingProcessID].queueID],PROCESSTABLEMAXSIZE)].priority){
 				int aux = Heap_getFirst(readyToRunQueue[USERPROCESSQUEUE],PROCESSTABLEMAXSIZE);
 				ComputerSystem_DebugMessage(TIMED_MESSAGE,58,SHORTTERMSCHEDULE,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
@@ -631,7 +631,7 @@ void checkPriorityAfterWakeUp(){
 			OperatingSystem_PrintStatus();
 		}
 		else{
-			if(processTable[executingProcessID].priority > 
+			if(processTable[executingProcessID].priority < 
 				processTable[Heap_getFirst(readyToRunQueue[DAEMONSQUEUE],PROCESSTABLEMAXSIZE)].priority){
 				int aux = Heap_getFirst(readyToRunQueue[DAEMONSQUEUE],PROCESSTABLEMAXSIZE);
 				ComputerSystem_DebugMessage(TIMED_MESSAGE,58,SHORTTERMSCHEDULE,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
