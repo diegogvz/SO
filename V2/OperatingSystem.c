@@ -402,6 +402,8 @@ void OperatingSystem_PreemptRunningProcess() {
 	OperatingSystem_SaveContext(executingProcessID);
 	// Change the process' state
 	OperatingSystem_MoveToTheREADYState(executingProcessID);
+
+	ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,statesNames[2],statesNames[1]);	
 	// The processor is not assigned until the OS selects another process
 	executingProcessID=NOPROCESS;
 }
@@ -608,7 +610,7 @@ void OperatingSystem_WakeUpProcesses(){
 void checkPriorityAfterWakeUp(){
 	
 	if(processTable[executingProcessID].queueID == USERPROCESSQUEUE){
-		if(processTable[executingProcessID].priority < 
+		if(processTable[executingProcessID].priority > 
 			processTable[Heap_getFirst(readyToRunQueue[processTable[executingProcessID].queueID],PROCESSTABLEMAXSIZE)].priority){
 				int aux = Heap_getFirst(readyToRunQueue[USERPROCESSQUEUE],PROCESSTABLEMAXSIZE);
 				ComputerSystem_DebugMessage(TIMED_MESSAGE,58,SHORTTERMSCHEDULE,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
@@ -631,7 +633,7 @@ void checkPriorityAfterWakeUp(){
 			OperatingSystem_PrintStatus();
 		}
 		else{
-			if(processTable[executingProcessID].priority < 
+			if(processTable[executingProcessID].priority > 
 				processTable[Heap_getFirst(readyToRunQueue[DAEMONSQUEUE],PROCESSTABLEMAXSIZE)].priority){
 				int aux = Heap_getFirst(readyToRunQueue[DAEMONSQUEUE],PROCESSTABLEMAXSIZE);
 				ComputerSystem_DebugMessage(TIMED_MESSAGE,58,SHORTTERMSCHEDULE,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
