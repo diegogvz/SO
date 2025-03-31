@@ -160,7 +160,7 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 		exit(1);		
 	}
 
-	if(userPrograms==0){
+	if(userPrograms==0 && OperatingSystem_IsThereANewProgram()==EMPTYQUEUE){
 		OperatingSystem_ReadyToShutdown();
 	}
 
@@ -176,7 +176,7 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 	// Initial operation for Operating System
 	Processor_SetPC(OS_address_base);
 
-	if (executingProcessID == sipID) {
+	if (executingProcessID == sipID && OperatingSystem_IsThereANewProgram()==EMPTYQUEUE) {
         Processor_SetSSP(MAINMEMORYSIZE - 1);
         Processor_PushInSystemStack(OS_address_base + 1);
         Processor_PushInSystemStack(Processor_GetPSW());
@@ -447,7 +447,7 @@ void OperatingSystem_TerminateExecutingProcess() {
     processTable[executingProcessID].state = EXIT;
 
     // If the terminated process is SystemIdleProcess, shut down the system
-    if (executingProcessID == sipID) {
+    if (executingProcessID == sipID && OperatingSystem_IsThereANewProgram()==EMPTYQUEUE) {
         Processor_SetSSP(MAINMEMORYSIZE - 1);
         Processor_PushInSystemStack(OS_address_base + 1);
         Processor_PushInSystemStack(Processor_GetPSW());
@@ -594,18 +594,22 @@ void OperatingSystem_HandleClockInterrupt(){
 	
 } 
 int OperatingSystem_WakeUpProcesses(){
-	int first=Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
 	int process = NOPROCESS;
-	while (first != NOPROCESS && processTable[first].whenToWakeUp == numberOfClockInterrupts){
-		ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,first,programList[processTable[first].programListIndex]->executableName,statesNames[3],statesNames[1]);
-		processTable[first].whenToWakeUp=-1;
-		processTable[first].state = READY;
-		process = OperatingSystem_ExtractFromSleepingQueue();
-		OperatingSystem_MoveToTheREADYState(process);
-		first = Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
-		OperatingSystem_PrintStatus();
 
+	if(numberOfSleepingProcesses>0){
+		int first=Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
+	
+		while(first!=NOPROCESS&&processTable[first].whenToWakeUp == numberOfClockInterrupts){
+			ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,first,programList[processTable[first].programListIndex]->executableName,statesNames[3],statesNames[1]);
+			processTable[first].whenToWakeUp=-1;
+			processTable[first].state = READY;
+			process = OperatingSystem_ExtractFromSleepingQueue();
+			first = Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
+			OperatingSystem_MoveToTheREADYState(process);
+			OperatingSystem_PrintStatus();
+		}
 	}
+	
 	if (process!=NOPROCESS)
 	{
 		return 1;

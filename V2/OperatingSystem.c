@@ -586,24 +586,26 @@ void OperatingSystem_HandleClockInterrupt(){
 	
 } 
 void OperatingSystem_WakeUpProcesses(){
-	int first=Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
 	int process = NOPROCESS;
-	while (first != NOPROCESS && processTable[first].whenToWakeUp == numberOfClockInterrupts){
-		ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,first,programList[processTable[first].programListIndex]->executableName,statesNames[3],statesNames[1]);
-		processTable[first].whenToWakeUp=-1;
-		processTable[first].state = READY;
-		process = OperatingSystem_ExtractFromSleepingQueue();
-		OperatingSystem_MoveToTheREADYState(process);
-		first = Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
-		OperatingSystem_PrintStatus();
 
+	if(numberOfSleepingProcesses>0){
+		int first=Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
+	
+		while(first!=NOPROCESS&&processTable[first].whenToWakeUp == numberOfClockInterrupts){
+			ComputerSystem_DebugMessage(TIMED_MESSAGE,53, SYSPROC,first,programList[processTable[first].programListIndex]->executableName,statesNames[3],statesNames[1]);
+			processTable[first].whenToWakeUp=-1;
+			processTable[first].state = READY;
+			process = OperatingSystem_ExtractFromSleepingQueue();
+			first = Heap_getFirst(sleepingProcessesQueue,PROCESSTABLEMAXSIZE);
+			OperatingSystem_MoveToTheREADYState(process);
+			OperatingSystem_PrintStatus();
+		}
 	}
-
+	
 	if (process!=NOPROCESS)
 	{
 		checkPriorityAfterWakeUp();
 	}
-
 	
 }
 
