@@ -11,6 +11,7 @@
 // Internals Functions prototypes
 void Processor_ManageInterrupts();
 
+
 // External data
 extern char *InstructionNames[];
 
@@ -390,3 +391,12 @@ char * Processor_ShowPSW(){
 
 /////////////////////////////////////////////////////////
 //  New functions below this line  //////////////////////
+// Getter for the RegisterD 
+int Processor_GetRegisterD() {
+	return registerD_CPU;
+  }
+  
+  // Setter for the RegisterD
+  void Processor_SetRegisterD(int reg){
+	registerD_CPU= reg;
+  }

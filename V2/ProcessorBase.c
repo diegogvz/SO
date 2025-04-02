@@ -18,7 +18,6 @@ extern int registerCTRL_CPU; // Control bus Register
 extern int registerA_CPU; // General purpose register
 extern int registerB_CPU; // General purpose register
 extern int registerC_CPU; // System register
-extern int registerD_CPU; //V2 ex 5.d
 extern int registerSP_CPU; // Stack pointer register
 extern int interruptLines_CPU; // Processor interrupt lines
 extern int interruptVectorTable[];
@@ -297,16 +296,6 @@ int Processor_GetRegisterC() {
 void Processor_SetRegisterC(int reg){
   registerC_CPU= reg;
 }
-
-// Getter for the RegisterD 
-int Processor_GetRegisterD() {
-	return registerD_CPU;
-  }
-  
-  // Setter for the RegisterD
-  void Processor_SetRegisterD(int reg){
-	registerD_CPU= reg;
-  }
 
 // Getter for the Stack Point Register
 int Processor_GetRegisterSP() {

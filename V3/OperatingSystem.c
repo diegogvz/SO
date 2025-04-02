@@ -447,7 +447,7 @@ void OperatingSystem_TerminateExecutingProcess() {
     processTable[executingProcessID].state = EXIT;
 
     // If the terminated process is SystemIdleProcess, shut down the system
-    if (executingProcessID == sipID && OperatingSystem_IsThereANewProgram()==EMPTYQUEUE) {
+    if (executingProcessID == sipID) {
         Processor_SetSSP(MAINMEMORYSIZE - 1);
         Processor_PushInSystemStack(OS_address_base + 1);
         Processor_PushInSystemStack(Processor_GetPSW());
