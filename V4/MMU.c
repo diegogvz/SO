@@ -20,6 +20,7 @@ int registerCTRL_MMU;
 void MMU_SetCTRL (int ctrl) {
 	int firstInvalidAddress;
 	registerCTRL_MMU=ctrl&0x3;
+
 	if (Processor_PSW_BitState(EXECUTION_MODE_BIT))
 		firstInvalidAddress=MAINMEMORYSIZE; // Protected mode
 	else {
@@ -29,7 +30,7 @@ void MMU_SetCTRL (int ctrl) {
 	switch (registerCTRL_MMU) {
 		case CTRLREAD:
 		case CTRLWRITE:
-			if (registerMAR_MMU < firstInvalidAddress) {
+			if (registerMAR_MMU < firstInvalidAddress && registerMAR_MMU>=0) {
 				// Send to the main memory HW the physical address to write in
 				Buses_write_AddressBus_From_To(MMU, MAINMEMORY);
 				// Tell the main memory HW to read
@@ -40,10 +41,12 @@ void MMU_SetCTRL (int ctrl) {
 			} else {
 				// Fail
 				registerCTRL_MMU |= CTRL_FAIL;
+				Processor_RaiseException(INVALIDADDRESS);
 			}
   			break;
   		default:
 				registerCTRL_MMU |= CTRL_FAIL;
+				Processor_RaiseException(INVALIDADDRESS);
 				break;
   	}
   	// registerCTRL_MMU return value was CTRL_SUCCESS or CTRL_FAIL

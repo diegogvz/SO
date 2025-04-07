@@ -120,7 +120,7 @@ void Processor_DecodeAndExecuteInstruction() {
 		// Instruction DIV
 		case DIV_INST: 
 			if (operand2 == 0)
-				Processor_RaiseInterrupt(EXCEPTION_BIT); 
+				Processor_RaiseException(DIVISIONBYZERO); 
 			else {
 				registerAccumulator_CPU=operand1 / operand2;
 				registerPC_CPU++;
@@ -231,7 +231,7 @@ void Processor_DecodeAndExecuteInstruction() {
 		//Instruction HALT
 		case HALT_INST: 
 			if (!Processor_PSW_BitState(EXECUTION_MODE_BIT)) {
-				Processor_RaiseInterrupt(EXCEPTION_BIT);
+				Processor_RaiseException(INVALIDPROCESSORMODE);
 			} else {
 				Processor_ActivatePSW_Bit(POWEROFF_BIT);
 			}
@@ -239,7 +239,7 @@ void Processor_DecodeAndExecuteInstruction() {
 		//Instruction OS
 		case OS_INST: 
 			if (!Processor_PSW_BitState(EXECUTION_MODE_BIT)) {
-				Processor_RaiseInterrupt(EXCEPTION_BIT);
+				Processor_RaiseException(INVALIDPROCESSORMODE);
 			} else {
 				ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 69, HARDWARE, 
 					InstructionNames[operationCode], operand1, operand2, 
@@ -255,7 +255,7 @@ void Processor_DecodeAndExecuteInstruction() {
 		//Instruction IRET
 		case IRET_INST: 
 			if (!Processor_PSW_BitState(EXECUTION_MODE_BIT)) {
-				Processor_RaiseInterrupt(EXCEPTION_BIT);
+				Processor_RaiseException(INVALIDPROCESSORMODE);
 			} else {
 				registerPSW_CPU = Processor_PopFromSystemStack();
 				registerPC_CPU = Processor_PopFromSystemStack();
@@ -332,8 +332,7 @@ void Processor_DecodeAndExecuteInstruction() {
 			break;
 		// Unknown instruction
 		default : 
-			operationCode=NONEXISTING_INST;
-			registerPC_CPU++;
+			Processor_RaiseException(INVALIDINSTRUCTION);
 			break;
 	}
 	

@@ -24,7 +24,7 @@ int OperatingSystem_CreateProcess(int);
 int OperatingSystem_ObtainMainMemory(int, int);
 int OperatingSystem_ShortTermScheduler();
 int OperatingSystem_ExtractFromReadyToRun(int);
-void OperatingSystem_HandleException();
+void OperatingSystem_HandleException(int);
 void OperatingSystem_HandleSystemCall();
 void OperatingSystem_PrintReadyToRunQueue();
 void OperatingSystem_HandleClockInterrupt();
@@ -429,11 +429,34 @@ void OperatingSystem_SaveContext(int PID) {
 
 
 // Exception management routine
-void OperatingSystem_HandleException() {
+void OperatingSystem_HandleException(int exception) {
   
-	// Show message "Process [executingProcessID] has generated an exception and is terminating\n"
-	ComputerSystem_DebugMessage(TIMED_MESSAGE,71,INTERRUPT,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName);
+	// Show message "Process [executingProcessID] has generated an exception and is terminating\n"	
+	switch (exception)
+	{
+	case DIVISIONBYZERO:
+		ComputerSystem_DebugMessage(TIMED_MESSAGE,40,INTERRUPT,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
+		"division by zero");
+		break;
 	
+	case INVALIDADDRESS:
+		ComputerSystem_DebugMessage(TIMED_MESSAGE,40,INTERRUPT,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
+		"invalid address");
+		break;
+	case INVALIDPROCESSORMODE:
+		ComputerSystem_DebugMessage(TIMED_MESSAGE,40,INTERRUPT,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
+		"invalid processor mode");
+		break;
+	case INVALIDINSTRUCTION:
+		ComputerSystem_DebugMessage(TIMED_MESSAGE,40,INTERRUPT,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,
+		"invalid instruction");
+		break;
+	
+	default:
+		break;
+	}
+
+
 	OperatingSystem_TerminateExecutingProcess();
 	OperatingSystem_PrintStatus();
 }
@@ -531,6 +554,11 @@ void OperatingSystem_HandleSystemCall() {
 			OperatingSystem_Dispatch(selectedProcess);
 			OperatingSystem_PrintStatus();
 			break;
+		default:
+			ComputerSystem_DebugMessage(TIMED_MESSAGE,41,INTERRUPT,executingProcessID,programList[processTable[executingProcessID].programListIndex]->executableName,Processor_GetRegisterC());
+			OperatingSystem_TerminateExecutingProcess();
+			OperatingSystem_PrintStatus();
+			break;
 	}
 }
 	
@@ -541,7 +569,7 @@ void OperatingSystem_InterruptLogic(int entryPoint){
 			OperatingSystem_HandleSystemCall();
 			break;
 		case EXCEPTION_BIT: // EXCEPTION_BIT=6
-			OperatingSystem_HandleException();
+			OperatingSystem_HandleException(Processor_GetRegisterD());
 			break;
 		case CLOCKINT_BIT:
 			OperatingSystem_HandleClockInterrupt();
