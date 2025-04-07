@@ -1,0 +1,7 @@
+50
+4
+ADD 3 2
+READ 15 1
+ADD 4 5
+ADD 2 2
+TRAP 3 

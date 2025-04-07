@@ -1,0 +1,60 @@
+Ejercicio V4-E1-a
+
+enum EXCEPTIONS {DIVISIONBYZERO, INVALIDPROCESSORMODE, INVALIDADDRESS, INVALIDINSTRUCTION};
+
+
+Ejercicio V4-E2
+
+Process [1 - NomProgPid1] has caused an exception (invalid address) and is being terminated
+Process [2 - NomProgPid2] has caused an exception (division by zero) and is being terminated
+Process [3 - NomProgPid3] has caused an exception (invalid processor mode) and is being terminated
+
+
+Ejercicio V4-E3-b
+
+Process [2 - NomProgPid2] has caused an exception (invalid instruction) and is being terminated
+
+
+Ejercicio V4-E4-a
+
+Process [1 - NomProgPid1] has made an invalid system call (777) and is being terminated
+
+
+Ejercicio V4-E5-a
+
+// Partitions and holes configuration definition
+#define MEMCONFIG  // in OperatingSystem.h
+
+
+Ejercicio V4-E6-b
+
+Process [3 - SystemIdleProcess] requests [4] memory positions
+
+
+Ejercicio V4-E6-c
+
+Partition [0: 0 -> 4] has been assigned to process [3 - SystemIdleProcess]
+
+New hole [3: 224 -> 12] has been created after assigning memory to process [1 - NomProgPid1]
+
+
+Ejercicio V4-E6-d-ii
+
+#define MEMORYFULL -5  // In OperatingSystem.h
+
+ERROR: A process could not be created from program [acceptableSizeExample] because an appropriate partition is not available
+
+
+Ejercicio V4-E7
+
+before allocating memory
+after allocating memory
+
+Ejercicio V4-E8
+
+Partition [0: 0 -> 4] used by process [3 - SystemIdleProcess] has been released
+
+Two or more holes has been coalesced
+
+before releasing memory
+after releasing memory

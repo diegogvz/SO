@@ -1,0 +1,7 @@
+50
+5
+ADD 5 10        
+TRAP 4           
+ADD 3 2         
+WRITE 30    
+TRAP 3
