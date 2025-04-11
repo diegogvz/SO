@@ -19,6 +19,9 @@
 
 #define SLEEPINGQUEUE
 
+// Partitions and holes configuration file name definition
+#define MEMCONFIG // in OperatingSystem.h
+#define MEMORYFULL -5
 enum TypeOfReadyToRunProcessQueues { USERPROCESSQUEUE, DAEMONSQUEUE }; 
 
 // Contains the possible type of programs
@@ -47,6 +50,8 @@ typedef struct {
 	int copyOfRegisterB;
 	int whenToWakeUp; // Exercise 5-a of V2
 } PCB;
+
+
 
 // These "extern" declaration enables other source code files to gain access
 // to the variable listed

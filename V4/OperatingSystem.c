@@ -21,7 +21,7 @@ int OperatingSystem_LongTermScheduler();
 void OperatingSystem_PreemptRunningProcess();
 void OperatingSystem_BLOCK_Process();
 int OperatingSystem_CreateProcess(int);
-int OperatingSystem_ObtainMainMemory(int, int);
+int OperatingSystem_ObtainMainMemory(int, int,PROGRAMS_DATA *);
 int OperatingSystem_ShortTermScheduler();
 int OperatingSystem_ExtractFromReadyToRun(int);
 void OperatingSystem_HandleException(int);
@@ -32,6 +32,9 @@ void OperatingSystem_MoveToTheBLOCKEDState();
 int OperatingSystem_ExtractFromSleepingQueue();
 int OperatingSystem_WakeUpProcesses();
 void checkPriorityAfterWakeUp();
+int OperatingSystem_GetIndexOfFirstFreePartition();
+void OperatingSystem_ReleaseMemory(int);
+void OperatingSystem_CoalesceHoles(int);
 
 // The process table
 // PCB processTable[PROCESSTABLEMAXSIZE];
@@ -110,13 +113,16 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 
 	sleepingProcessesQueue = Heap_create(PROCESSTABLEMAXSIZE);
 
-
+	OperatingSystem_InitializePartitionsAndHolesTable(MAINMEMORYSIZE);
+	
 	programFile=fopen("OperatingSystemCode", "r");
 	if (programFile==NULL){
 		// Show red message "FATAL ERROR: Missing Operating System!\n"
 		ComputerSystem_DebugMessage(NO_TIMED_MESSAGE,99,SHUTDOWN,"FATAL ERROR: Missing Operating System!\n");
 		exit(1);		
 	}
+
+	
 
 	// Obtain the memory requirements of the program
 	int processSize=OperatingSystem_ObtainProgramSize(programFile);
@@ -149,6 +155,7 @@ void OperatingSystem_Initialize(int programsFromFileIndex) {
 
 	ComputerSystem_FillInArrivalTimeQueue();
 	OperatingSystem_PrintStatus();
+	OperatingSystem_ShowPartitionsAndHolesTable("INITIALIZING");
 	
 	// Create all user processes from the information given in the command line
 	int userPrograms = OperatingSystem_LongTermScheduler();
@@ -215,6 +222,9 @@ int OperatingSystem_LongTermScheduler() {
 			case TOOBIGPROCESS:
 				ComputerSystem_DebugMessage(NO_TIMED_MESSAGE, 52, ERROR,programList[i]->executableName);
 				break;
+			case MEMORYFULL:
+				ComputerSystem_DebugMessage(TIMED_MESSAGE, 39, ERROR, programList[i]->executableName);
+				break;
 			default:
 				break;
 			}
@@ -242,10 +252,10 @@ int OperatingSystem_CreateProcess(int indexOfExecutableProgram) {
 	int PID;
 	int processSize;
 	int loadingPhysicalAddress;
+	int partitionIndex;
 	int priority;
 	FILE *programFile;
 	PROGRAMS_DATA *executableProgram=programList[indexOfExecutableProgram];
-
 	// Obtain a process ID
 	PID = OperatingSystem_ObtainAnEntryInTheProcessTable();
 	if (PID==NOFREEENTRY)
@@ -270,24 +280,28 @@ int OperatingSystem_CreateProcess(int indexOfExecutableProgram) {
 	if(processSize==PROGRAMNOTVALID){
 		return PROGRAMNOTVALID;
 	}
-	
-	// Obtain enough memory space
- 	loadingPhysicalAddress=OperatingSystem_ObtainMainMemory(processSize, PID);
-	if (loadingPhysicalAddress==TOOBIGPROCESS)
-	{
-		return PROGRAMNOTVALID;
-	}
-	
 
-	// Load program in the allocated memory
+	OperatingSystem_ShowPartitionsAndHolesTable("BEFORE OBTAINING MEMORY");
 	
-	if (OperatingSystem_LoadProgram(programFile, loadingPhysicalAddress, processSize)==TOOBIGPROCESS)
-	{
+	partitionIndex = OperatingSystem_ObtainMainMemory(processSize, PID, executableProgram);
+	if (partitionIndex == TOOBIGPROCESS) {
+		return TOOBIGPROCESS;
+	}
+	if(partitionIndex == MEMORYFULL){
+		return MEMORYFULL;
+	}
+
+	loadingPhysicalAddress = partitionsAndHolesTable[partitionIndex].initAddress;
+
+	if (OperatingSystem_LoadProgram(programFile, loadingPhysicalAddress, processSize) == TOOBIGPROCESS) {
 		return TOOBIGPROCESS;
 	}
 	// PCB initialization
 	OperatingSystem_PCBInitialization(PID, loadingPhysicalAddress, processSize, priority, indexOfExecutableProgram);
 	
+	OperatingSystem_ShowPartitionsAndHolesTable("AFTER OBTAINING MEMORY");
+
+
 	// Show message "Process [2] created into the [NEW] state, from program[progName]"
 	ComputerSystem_DebugMessage(TIMED_MESSAGE,54,SYSPROC,PID,statesNames[0],executableProgram->executableName);
 	
@@ -297,13 +311,150 @@ int OperatingSystem_CreateProcess(int indexOfExecutableProgram) {
 
 // Main memory is assigned in chunks. All chunks are the same size. A process
 // always obtains the chunk whose position in memory is equal to the processor identifier
-int OperatingSystem_ObtainMainMemory(int processSize, int PID) {
+int OperatingSystem_ObtainMainMemory(int processSize, int PID,PROGRAMS_DATA * executableProgram) {
 
- 	if (processSize>MAINMEMORYSECTIONSIZE)
-		return TOOBIGPROCESS;
-	
- 	return PID*MAINMEMORYSECTIONSIZE;
+	int bestFitIndex = -1;
+	int bestFitSize = MAINMEMORYSIZE + 1; // IMPOSSIBLE
+	int biggestHoleSize = -1;
+	int i;
+
+	ComputerSystem_DebugMessage(TIMED_MESSAGE, 42, SYSMEM, PID, executableProgram->executableName, processSize); // Mensaje de solicitud
+
+	for (i = 0; i < PARTITIONSANDHOLESTABLEMAXSIZE; i++) {
+		if (partitionsAndHolesTable[i].PID == HOLE  && partitionsAndHolesTable[i].size > 0) { // HOLE
+			int holeSize = partitionsAndHolesTable[i].size;
+
+			if (holeSize > biggestHoleSize)
+				biggestHoleSize = holeSize;
+
+			if (holeSize >= processSize) {
+				if (holeSize < bestFitSize || (holeSize == bestFitSize &&
+					partitionsAndHolesTable[i].initAddress < partitionsAndHolesTable[bestFitIndex].initAddress)) {
+					// BEST FIT
+					bestFitIndex = i;
+					bestFitSize = holeSize;
+				}
+			}
+		}
+	}
+
+	if (bestFitIndex == -1) {
+		if (processSize > biggestHoleSize)
+			return TOOBIGPROCESS;
+		else
+			return MEMORYFULL;
+	}
+
+	// DIVIDE IF REMAINING SPACE
+	int remaining = partitionsAndHolesTable[bestFitIndex].size - processSize;
+
+	partitionsAndHolesTable[bestFitIndex].size = processSize;
+	partitionsAndHolesTable[bestFitIndex].PID = PID;
+	numberOfPartitionsAndHoles++;
+
+	ComputerSystem_DebugMessage(TIMED_MESSAGE, 43, SYSMEM, bestFitIndex,
+		partitionsAndHolesTable[bestFitIndex].initAddress,
+		partitionsAndHolesTable[bestFitIndex].size, PID, executableProgram->executableName);
+
+	if (remaining > 0) {
+		// NEW HOLE
+		int newIndex = OperatingSystem_GetIndexOfFirstFreePartition();
+		partitionsAndHolesTable[newIndex].initAddress =
+			partitionsAndHolesTable[bestFitIndex].initAddress + processSize;
+		partitionsAndHolesTable[newIndex].size = remaining;
+		partitionsAndHolesTable[newIndex].PID = HOLE;
+
+		ComputerSystem_DebugMessage(TIMED_MESSAGE, 44,SYSMEM, newIndex,
+			partitionsAndHolesTable[newIndex].initAddress,
+			partitionsAndHolesTable[newIndex].size, PID, executableProgram->executableName);
+	}
+
+	return bestFitIndex; 
 }
+
+int OperatingSystem_GetIndexOfFirstFreePartition() {
+	for (int i = 0; i < PARTITIONSANDHOLESTABLEMAXSIZE; i++) {
+		if (partitionsAndHolesTable[i].PID == NOPROCESS)
+			return i;
+	}
+	return -1;
+}
+
+void OperatingSystem_ReleaseMainMemory(int PID) {
+	for (int i = 0; i < PARTITIONSANDHOLESTABLEMAXSIZE; i++) {
+		if (partitionsAndHolesTable[i].PID == PID) {
+			
+			OperatingSystem_ShowPartitionsAndHolesTable("before releasing memory");
+
+			ComputerSystem_DebugMessage(TIMED_MESSAGE, 45, SYSMEM, i,
+				partitionsAndHolesTable[i].initAddress,
+				partitionsAndHolesTable[i].size,
+				PID,
+				programList[processTable[PID].programListIndex]->executableName);
+
+			partitionsAndHolesTable[i].PID = HOLE;
+
+			OperatingSystem_CoalesceHoles(i);
+
+			OperatingSystem_ShowPartitionsAndHolesTable("after releasing memory");
+
+			break;
+		}
+	}
+}
+void OperatingSystem_CoalesceHoles(int position) {
+	int coalesced = 0;
+
+	// Ver si hay hueco anterior
+	if (position > 0 && 
+		partitionsAndHolesTable[position - 1].PID == HOLE &&
+		partitionsAndHolesTable[position - 1].initAddress + partitionsAndHolesTable[position - 1].size == partitionsAndHolesTable[position].initAddress) {
+
+		// Fusionar con el anterior
+		partitionsAndHolesTable[position - 1].size += partitionsAndHolesTable[position].size;
+
+		// Eliminar entrada actual desplazando todo a la izquierda
+		for (int i = position; i < numberOfPartitionsAndHoles - 1; i++) {
+			partitionsAndHolesTable[i] = partitionsAndHolesTable[i + 1];
+		}
+
+		// Marcar última como vacía
+		partitionsAndHolesTable[numberOfPartitionsAndHoles - 1].size = -1;
+		partitionsAndHolesTable[numberOfPartitionsAndHoles - 1].initAddress = -1;
+		partitionsAndHolesTable[numberOfPartitionsAndHoles - 1].PID = NOPROCESS;
+
+		numberOfPartitionsAndHoles--;
+		position--; // Ahora el hueco está una posición antes
+		coalesced = 1;
+	}
+
+	// Ver si hay hueco posterior
+	if (position < numberOfPartitionsAndHoles - 1 &&
+		partitionsAndHolesTable[position + 1].PID == HOLE &&
+		partitionsAndHolesTable[position].initAddress + partitionsAndHolesTable[position].size == partitionsAndHolesTable[position + 1].initAddress) {
+
+		// Fusionar con el siguiente
+		partitionsAndHolesTable[position].size += partitionsAndHolesTable[position + 1].size;
+
+		// Eliminar entrada siguiente desplazando todo a la izquierda
+		for (int i = position + 1; i < numberOfPartitionsAndHoles - 1; i++) {
+			partitionsAndHolesTable[i] = partitionsAndHolesTable[i + 1];
+		}
+
+		// Marcar última como vacía
+		partitionsAndHolesTable[numberOfPartitionsAndHoles - 1].size = -1;
+		partitionsAndHolesTable[numberOfPartitionsAndHoles - 1].initAddress = -1;
+		partitionsAndHolesTable[numberOfPartitionsAndHoles - 1].PID = NOPROCESS;
+
+		numberOfPartitionsAndHoles--;
+		coalesced = 1;
+	}
+
+	if (coalesced) {
+		ComputerSystem_DebugMessage(TIMED_MESSAGE, 144, SYSMEM); // "[72] Two_or_more_holes_has_been_coalesced"
+	}
+}
+
 
 
 // Assign initial values to all fields inside the PCB
@@ -480,6 +631,8 @@ void OperatingSystem_TerminateExecutingProcess() {
     }
 
     Processor_SetSSP(Processor_GetSSP() + 2); // Unstack PC and PSW
+
+	OperatingSystem_ReleaseMainMemory(executingProcessID);
 
     if (programList[processTable[executingProcessID].programListIndex]->type == USERPROGRAM) {
         numberOfNotTerminatedUserProcesses--;

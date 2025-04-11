@@ -19,3 +19,5 @@
 113,\n
 
 140,Process [@R%d - %s@@] has caused an exception (@R%s@@) and is being terminated\n
+
+144,@GTwo_or_more_holes_has_been_coalesced\n@@

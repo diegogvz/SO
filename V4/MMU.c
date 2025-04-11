@@ -17,41 +17,45 @@ int registerCTRL_MMU;
 
 // Logical address is in registerMAR_MMU. If correct, physical address is produced
 // by adding logical address and base register
-void MMU_SetCTRL (int ctrl) {
-	int firstInvalidAddress;
-	registerCTRL_MMU=ctrl&0x3;
+void MMU_SetCTRL(int ctrl) {
+	registerCTRL_MMU = ctrl & 0x3;
+	int logicalAddress = registerMAR_MMU;
+	int valid = 0;
 
-	if (Processor_PSW_BitState(EXECUTION_MODE_BIT))
-		firstInvalidAddress=MAINMEMORYSIZE; // Protected mode
-	else {
-		firstInvalidAddress=registerBase_MMU+registerLimit_MMU; // Non-protected mode
-		registerMAR_MMU+=registerBase_MMU;
+	if (Processor_PSW_BitState(EXECUTION_MODE_BIT)) {
+		// Protected mode: valid if address ∈ [0, MAINMEMORYSIZE)
+		valid = (logicalAddress >= 0 && logicalAddress < MAINMEMORYSIZE);
+	} else {
+		// User mode: valid if address ∈ [0, registerLimit_MMU)
+		valid = (logicalAddress >= 0 && logicalAddress < registerLimit_MMU);
+		if (valid) {
+			// Translate logical to physical address
+			registerMAR_MMU += registerBase_MMU;
+		}
 	}
+
 	switch (registerCTRL_MMU) {
 		case CTRLREAD:
 		case CTRLWRITE:
-			if (registerMAR_MMU < firstInvalidAddress && registerMAR_MMU>=0) {
-				// Send to the main memory HW the physical address to write in
+			if (valid) {
 				Buses_write_AddressBus_From_To(MMU, MAINMEMORY);
-				// Tell the main memory HW to read
-				// registerCTRL_MMU is CTRLREAD or CTRLWRITE 
-				Buses_write_ControlBus_From_To(MMU,MAINMEMORY);
-				// Success
-			 	registerCTRL_MMU |= CTRL_SUCCESS;
+				Buses_write_ControlBus_From_To(MMU, MAINMEMORY);
+				registerCTRL_MMU |= CTRL_SUCCESS;
 			} else {
-				// Fail
 				registerCTRL_MMU |= CTRL_FAIL;
 				Processor_RaiseException(INVALIDADDRESS);
 			}
-  			break;
-  		default:
-				registerCTRL_MMU |= CTRL_FAIL;
-				Processor_RaiseException(INVALIDADDRESS);
-				break;
-  	}
-  	// registerCTRL_MMU return value was CTRL_SUCCESS or CTRL_FAIL
-  	Buses_write_ControlBus_From_To(MMU,CPU);
+			break;
+
+		default:
+			registerCTRL_MMU |= CTRL_FAIL;
+			Processor_RaiseException(INVALIDADDRESS);
+			break;
+	}
+
+	Buses_write_ControlBus_From_To(MMU, CPU);
 }
+
 
 // Getter for registerCTRL_MMU
 int MMU_GetCTRL () {
